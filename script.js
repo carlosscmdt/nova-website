@@ -578,3 +578,504 @@ console.log(
     'background: linear-gradient(135deg, #a855f7, #6366f1); color: white; padding: 8px 12px; font-size: 14px; font-weight: bold; border-radius: 6px 0 0 6px;',
     'background: #18181b; color: #a855f7; padding: 8px 12px; font-size: 14px; font-weight: bold; border-radius: 0 6px 6px 0;'
 );
+
+// ================================
+// Store Generator API Integration
+// ================================
+const API_BASE_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000'
+    : 'https://nova-api.your-domain.com'; // Replace with your deployed API URL
+
+// Create Generation Modal
+function createGenerationModal() {
+    const modal = document.createElement('div');
+    modal.id = 'generation-modal';
+    modal.innerHTML = `
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-logo">
+                    <svg viewBox="0 0 32 32" fill="none" width="32" height="32">
+                        <path d="M16 2L2 9L16 16L30 9L16 2Z" fill="url(#modal-grad)"/>
+                        <path d="M2 23L16 30L30 23" stroke="url(#modal-grad)" stroke-width="2"/>
+                        <path d="M2 16L16 23L30 16" stroke="url(#modal-grad)" stroke-width="2"/>
+                        <defs>
+                            <linearGradient id="modal-grad" x1="2" y1="2" x2="30" y2="30">
+                                <stop stop-color="#a855f7"/>
+                                <stop offset="1" stop-color="#6366f1"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h2>Building Your Store</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="generation-steps">
+                    <div class="gen-step" data-step="scrape">
+                        <div class="step-icon">🔍</div>
+                        <div class="step-info">
+                            <span class="step-title">Analyzing Product</span>
+                            <span class="step-desc">Extracting images, pricing, and details...</span>
+                        </div>
+                        <div class="step-status">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                    <div class="gen-step" data-step="generate">
+                        <div class="step-icon">🤖</div>
+                        <div class="step-info">
+                            <span class="step-title">AI Content Generation</span>
+                            <span class="step-desc">Creating compelling copy & SEO...</span>
+                        </div>
+                        <div class="step-status"></div>
+                    </div>
+                    <div class="gen-step" data-step="theme">
+                        <div class="step-icon">🎨</div>
+                        <div class="step-info">
+                            <span class="step-title">Building Theme</span>
+                            <span class="step-desc">Generating Shopify-ready store...</span>
+                        </div>
+                        <div class="step-status"></div>
+                    </div>
+                    <div class="gen-step" data-step="complete">
+                        <div class="step-icon">🚀</div>
+                        <div class="step-info">
+                            <span class="step-title">Store Ready!</span>
+                            <span class="step-desc">Your store is ready to download</span>
+                        </div>
+                        <div class="step-status"></div>
+                    </div>
+                </div>
+                <div class="generation-preview" style="display: none;">
+                    <div class="preview-header">
+                        <img class="preview-image" src="" alt="Product">
+                        <div class="preview-info">
+                            <h3 class="preview-title"></h3>
+                            <p class="preview-price"></p>
+                        </div>
+                    </div>
+                    <div class="preview-actions">
+                        <button class="btn-preview">👁 Preview Store</button>
+                        <button class="btn-download">📥 Download Theme</button>
+                    </div>
+                </div>
+                <div class="generation-error" style="display: none;">
+                    <div class="error-icon">⚠️</div>
+                    <p class="error-message"></p>
+                    <button class="btn-retry">Try Again</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Add modal styles
+    const modalStyles = document.createElement('style');
+    modalStyles.textContent = `
+        #generation-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+        }
+        #generation-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+        }
+        .modal-content {
+            position: relative;
+            background: #18181b;
+            border-radius: 20px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .modal-header h2 {
+            flex: 1;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        .modal-close:hover {
+            color: #fff;
+        }
+        .generation-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .gen-step {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+            opacity: 0.4;
+            transition: all 0.3s ease;
+        }
+        .gen-step.active {
+            opacity: 1;
+            border-color: #a855f7;
+            background: rgba(168,85,247,0.1);
+        }
+        .gen-step.done {
+            opacity: 1;
+            border-color: #22c55e;
+        }
+        .gen-step.error {
+            opacity: 1;
+            border-color: #ef4444;
+        }
+        .step-icon {
+            font-size: 24px;
+        }
+        .step-info {
+            flex: 1;
+        }
+        .step-title {
+            display: block;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        .step-desc {
+            display: block;
+            font-size: 12px;
+            color: #888;
+        }
+        .step-status {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(168,85,247,0.3);
+            border-top-color: #a855f7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .gen-step.done .step-status::after {
+            content: '✓';
+            color: #22c55e;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .gen-step.done .spinner {
+            display: none;
+        }
+        .generation-preview {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .preview-header {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .preview-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            object-fit: cover;
+        }
+        .preview-info {
+            flex: 1;
+        }
+        .preview-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .preview-price {
+            color: #22c55e;
+            font-weight: 700;
+        }
+        .preview-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .preview-actions button {
+            flex: 1;
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-preview {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+        }
+        .btn-preview:hover {
+            border-color: #a855f7;
+            background: rgba(168,85,247,0.1);
+        }
+        .btn-download {
+            background: linear-gradient(135deg, #a855f7, #6366f1);
+            border: none;
+            color: white;
+        }
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(168,85,247,0.3);
+        }
+        .generation-error {
+            text-align: center;
+            padding: 24px;
+        }
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .error-message {
+            color: #ef4444;
+            margin-bottom: 20px;
+        }
+        .btn-retry {
+            padding: 12px 24px;
+            background: #ef4444;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    `;
+    document.head.appendChild(modalStyles);
+
+    // Close modal handlers
+    modal.querySelector('.modal-close').addEventListener('click', () => closeModal());
+    modal.querySelector('.modal-overlay').addEventListener('click', () => closeModal());
+
+    return modal;
+}
+
+function openModal() {
+    const modal = document.getElementById('generation-modal') || createGenerationModal();
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    // Reset steps
+    modal.querySelectorAll('.gen-step').forEach(step => {
+        step.classList.remove('active', 'done', 'error');
+        step.querySelector('.step-status').innerHTML = '';
+    });
+    modal.querySelector('.generation-preview').style.display = 'none';
+    modal.querySelector('.generation-error').style.display = 'none';
+    modal.querySelector('.generation-steps').style.display = 'flex';
+}
+
+function closeModal() {
+    const modal = document.getElementById('generation-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function updateStep(stepName, status) {
+    const modal = document.getElementById('generation-modal');
+    const step = modal.querySelector(`[data-step="${stepName}"]`);
+
+    step.classList.remove('active', 'done', 'error');
+    step.classList.add(status);
+
+    if (status === 'active') {
+        step.querySelector('.step-status').innerHTML = '<div class="spinner"></div>';
+    } else if (status === 'done') {
+        step.querySelector('.step-status').innerHTML = '';
+    }
+}
+
+// Store generation data
+let generatedStore = null;
+
+async function generateStore(productUrl) {
+    openModal();
+
+    try {
+        // Step 1: Scrape product
+        updateStep('scrape', 'active');
+
+        const scrapeResponse = await fetch(`${API_BASE_URL}/api/scrape`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: productUrl })
+        });
+
+        if (!scrapeResponse.ok) throw new Error('Failed to analyze product');
+        const scrapeData = await scrapeResponse.json();
+
+        updateStep('scrape', 'done');
+
+        // Step 2: Generate AI content
+        updateStep('generate', 'active');
+
+        const generateResponse = await fetch(`${API_BASE_URL}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                productData: scrapeData.data,
+                options: { style: 'modern', tone: 'professional' }
+            })
+        });
+
+        if (!generateResponse.ok) throw new Error('Failed to generate content');
+        const generateData = await generateResponse.json();
+
+        updateStep('generate', 'done');
+
+        // Step 3: Build theme
+        updateStep('theme', 'active');
+
+        // Simulate theme building (in production this would be another API call)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        updateStep('theme', 'done');
+
+        // Step 4: Complete
+        updateStep('complete', 'active');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        updateStep('complete', 'done');
+
+        // Store the generated data
+        generatedStore = {
+            product: scrapeData.data,
+            content: generateData.data
+        };
+
+        // Show preview
+        showGenerationPreview(generatedStore);
+
+    } catch (error) {
+        console.error('Generation error:', error);
+        showGenerationError(error.message);
+    }
+}
+
+function showGenerationPreview(data) {
+    const modal = document.getElementById('generation-modal');
+    const preview = modal.querySelector('.generation-preview');
+
+    preview.querySelector('.preview-image').src = data.product.images?.[0] || '';
+    preview.querySelector('.preview-title').textContent = data.content?.storeName || data.product.title;
+    preview.querySelector('.preview-price').textContent = data.product.price || '';
+
+    preview.style.display = 'block';
+
+    // Preview button
+    preview.querySelector('.btn-preview').onclick = () => {
+        // Open preview in new tab
+        const previewUrl = `${API_BASE_URL}/preview?data=${encodeURIComponent(JSON.stringify(data))}`;
+        window.open(previewUrl, '_blank');
+    };
+
+    // Download button
+    preview.querySelector('.btn-download').onclick = () => {
+        downloadTheme(data);
+    };
+}
+
+function showGenerationError(message) {
+    const modal = document.getElementById('generation-modal');
+    modal.querySelector('.generation-steps').style.display = 'none';
+
+    const errorDiv = modal.querySelector('.generation-error');
+    errorDiv.querySelector('.error-message').textContent = message;
+    errorDiv.style.display = 'block';
+
+    errorDiv.querySelector('.btn-retry').onclick = () => {
+        const input = document.getElementById('heroInput');
+        if (input?.value) {
+            generateStore(input.value);
+        }
+    };
+}
+
+function downloadTheme(data) {
+    // Create a simple JSON download for now
+    // In production, this would generate actual Shopify theme files
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nova-store-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Connect Generate Button
+document.addEventListener('DOMContentLoaded', () => {
+    const generateBtn = document.getElementById('generateBtn');
+    const heroInput = document.getElementById('heroInput');
+
+    if (generateBtn && heroInput) {
+        generateBtn.addEventListener('click', () => {
+            const url = heroInput.value.trim();
+
+            if (!url) {
+                heroInput.focus();
+                heroInput.style.borderColor = '#ef4444';
+                setTimeout(() => heroInput.style.borderColor = '', 2000);
+                return;
+            }
+
+            // Basic URL validation
+            if (!url.includes('aliexpress') && !url.includes('amazon') && !url.includes('cj') && !url.startsWith('http')) {
+                alert('Please enter a valid product URL from AliExpress, Amazon, or CJ Dropshipping');
+                return;
+            }
+
+            generateStore(url);
+        });
+
+        // Enter key support
+        heroInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                generateBtn.click();
+            }
+        });
+    }
+});
