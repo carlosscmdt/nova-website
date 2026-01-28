@@ -584,7 +584,7 @@ console.log(
 // ================================
 const API_BASE_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000'
-    : 'https://nova-api.your-domain.com'; // Replace with your deployed API URL
+    : 'https://nova-api-production-fcaa.up.railway.app';
 
 // Create Generation Modal
 function createGenerationModal() {
